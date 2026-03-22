@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routine Journal</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,sans-serif;
+  background:linear-gradient(180deg,#020617,#0f172a);
+  color:#e5e7eb;
+}
+.app{max-width:430px;margin:auto;min-height:100vh;display:flex;flex-direction:column}
+header,footer{background:#020617;border-color:#1e293b}
+header{padding:20px;text-align:center;border-bottom:1px solid}
+header h1{margin:0;color:#38bdf8}
+.date{font-size:13px;opacity:.7}
+.content{padding:16px;flex:1}
+.card{
+  background:#020617;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 10px 25px rgba(0,0,0,.4)
+}
+.card h2{margin:0 0 12px;color:#7dd3fc;font-size:16px}
+.task{display:flex;gap:10px;margin-bottom:8px}
+input,textarea,button{
+  width:100%;padding:12px;border-radius:12px;
+  border:1px solid #1e293b;background:#020617;color:#e5e7eb
+}
+textarea{resize:none}
+button{background:#38bdf8;color:#020617;font-weight:600;cursor:pointer}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.day{padding:8px;border-radius:8px;cursor:pointer}
+.busy{background:#38bdf8;color:#020617;font-weight:600}
+footer{padding:14px;border-top:1px solid}
+</style>
+</head>
+
+<body>
+<div class="app">
+<header>
+<h1>Routine Journal</h1>
+<div class="date" id="date"></div>
+</header>
+
+<div class="content">
+
+<div class="card">
+<h2>Routine</h2>
+<div class="task"><input type="checkbox" id="workout">Workout</div>
+<div class="task"><input type="checkbox" id="study">Study</div>
+<div class="task"><input type="checkbox" id="school">School</div>
+<div class="task"><input type="checkbox" id="hustle">Hustle</div>
+</div>
+
+<div class="card">
+<h2>Journal</h2>
+<textarea id="journal"></textarea>
+</div>
+
+<div class="card">
+<h2>Money</h2>
+<input id="income" type="number" placeholder="Income">
+<input id="expense" type="number" placeholder="Expense">
+<div id="balance">Balance: 0</div>
+</div>
+
+<div class="card">
+<h2>Monthly Money</h2>
+<div id="monthlyIncome"></div>
+<div id="monthlyExpense"></div>
+<div id="monthlyBalance"></div>
+</div>
+
+<div class="card">
+<h2>Daily Timetable</h2>
+<textarea id="timetable" placeholder="06:00 – Workout"></textarea>
+</div>
+
+<div class="card">
+<h2>Attendance</h2>
+<div class="task"><input type="checkbox" id="attended">Attended</div>
+<textarea id="attendanceNote" placeholder="Reason if absent"></textarea>
+</div>
+
+<div class="card">
+<h2>Monthly Attendance</h2>
+<div id="attendancePercent"></div>
+</div>
+
+<div class="card">
+<h2>Calendar</h2>
+<input type="date" id="eventDate">
+<textarea id="eventText" placeholder="Busy with..."></textarea>
+<button onclick="saveEvent()">Save Event</button>
+<div class="calendar" id="calendar"></div>
+</div>
+
+</div>
+
+<footer>
+<button onclick="saveData()">Save Day</button>
+</footer>
+</div>
+
+<script>
+const today=new Date().toDateString();
+date.innerText=today;
+
+function updateBalance(){
+ balance.innerText="Balance: "+((+income.value||0)-(+expense.value||0));
+}
+income.oninput=expense.oninput=updateBalance;
+
+function saveData(){
+ const data={
+  workout:workout.checked,study:study.checked,
+  school:school.checked,hustle:hustle.checked,
+  journal:journal.value,income:income.value,
+  expense:expense.value,timetable:timetable.value,
+  attended:attended.checked,attendanceNote:attendanceNote.value
+ };
+ localStorage.setItem(today,JSON.stringify(data));
+ calcMonthly();calcAttendance();
+ alert("Saved ✔");
+}
+
+const saved=localStorage.getItem(today);
+if(saved){
+ const d=JSON.parse(saved);
+ Object.assign(workout,{checked:d.workout});
+ Object.assign(study,{checked:d.study});
+ Object.assign(school,{checked:d.school});
+ Object.assign(hustle,{checked:d.hustle});
+ journal.value=d.journal||"";
+ income.value=d.income||"";
+ expense.value=d.expense||"";
+ timetable.value=d.timetable||"";
+ attended.checked=d.attended||false;
+ attendanceNote.value=d.attendanceNote||"";
+ updateBalance();
+}
+
+function calcMonthly(){
+ let i=0,e=0;
+ const n=new Date();
+ for(let k in localStorage){
+  const d=new Date(k);
+  if(!isNaN(d)&&d.getMonth()==n.getMonth()){
+   const v=JSON.parse(localStorage[k]);
+   i+=+v.income||0;
+   e+=+v.expense||0;
+  }
+ }
+ monthlyIncome.innerText="Income: "+i;
+ monthlyExpense.innerText="Expense: "+e;
+ monthlyBalance.innerText="Balance: "+(i-e);
+}
+
+function calcAttendance(){
+ let t=0,p=0,n=new Date();
+ for(let k in localStorage){
+  const d=new Date(k);
+  if(!isNaN(d)&&d.getMonth()==n.getMonth()){
+   const v=JSON.parse(localStorage[k]);
+   if("attended"in v){t++;if(v.attended)p++}
+  }
+ }
+ attendancePercent.innerText="Attendance: "+(t?Math.round(p/t*100):0)+"%";
+}
+
+function saveEvent(){
+ const ev=JSON.parse(localStorage.events||"{}");
+ if(!eventDate.value||!eventText.value)return;
+ ev[eventDate.value]=(ev[eventDate.value]||[]).concat(eventText.value);
+ localStorage.events=JSON.stringify(ev);
+ buildCalendar();eventText.value="";
+}
+
+function buildCalendar(){
+ calendar.innerHTML="";
+ const n=new Date(),y=n.getFullYear(),m=n.getMonth();
+ const ev=JSON.parse(localStorage.events||"{}");
+ const first=new Date(y,m,1).getDay();
+ const days=new Date(y,m+1,0).getDate();
+ for(let i=0;i<first;i++)calendar.appendChild(document.createElement("div"));
+ for(let d=1;d<=days;d++){
+  const ds=`${y}-${String(m+1).padStart(2,0)}-${String(d).padStart(2,0)}`;
+  const c=document.createElement("div");
+  c.className="day"+(ev[ds]?" busy":"");
+  c.innerText=d;
+  calendar.appendChild(c);
+ }
+}
+
+calcMonthly();calcAttendance();buildCalendar();
+</script>
+</body>
+</html>
